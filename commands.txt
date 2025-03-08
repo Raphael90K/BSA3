@@ -1,0 +1,11 @@
+# shows storages
+lsblk
+
+# shows zpool status
+zpool status
+
+# create pool
+zpool create [name] [disks..]
+
+# show mount of device
+zfs list
