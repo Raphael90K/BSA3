@@ -5,7 +5,10 @@ lsblk
 zpool status
 
 # create pool
-zpool create [name] [disks..]
+zpool create [poolname] [disks..]
 
 # show mount of device
 zfs list
+
+# additional info
+zpool get all [poolname]
