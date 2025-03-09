@@ -5,9 +5,10 @@ import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
 public class ZFSFileMonitor {
-    private static final String WATCH_DIR = "/pfad/zum/ordner";
-    private static final String ZFS_DATASET = "tank/dataset";
-    private static final Map<String, String> fileHashes = new HashMap<>();
+    private static final String WATCH_DIR = "/zfs";
+    private static final String ZFS_DATASET = "zfs";
+    private static final Map<String, String> initialHashes = new HashMap<>();
+    private static final Map<String, String> lastKnownHashes = new HashMap<>();
 
     public static void main(String[] args) throws IOException, NoSuchAlgorithmException {
         WatchService watchService = FileSystems.getDefault().newWatchService();
@@ -16,6 +17,7 @@ public class ZFSFileMonitor {
 
         System.out.println("Überwachung gestartet...");
         createSnapshot();
+        initializeHashes();
 
         while (true) {
             WatchKey key;
@@ -31,26 +33,52 @@ public class ZFSFileMonitor {
 
                 if (kind == StandardWatchEventKinds.ENTRY_CREATE || kind == StandardWatchEventKinds.ENTRY_MODIFY) {
                     handleFileChange(filePath);
+                    onFileSave(filePath);
                 }
             }
             key.reset();
         }
     }
 
+    private static void initializeHashes() throws IOException, NoSuchAlgorithmException {
+        Files.walk(Paths.get(WATCH_DIR)).filter(Files::isRegularFile).forEach(file -> {
+            try {
+                String hash = calculateHash(file);
+                initialHashes.put(file.toString(), hash);
+                lastKnownHashes.put(file.toString(), hash);
+            } catch (IOException | NoSuchAlgorithmException e) {
+                System.err.println("Fehler beim Initialisieren des Hashes: " + e.getMessage());
+            }
+        });
+    }
+
     private static void handleFileChange(Path filePath) {
         try {
             String newHash = calculateHash(filePath);
-            String oldHash = fileHashes.get(filePath.toString());
+            String lastHash = lastKnownHashes.get(filePath.toString());
 
-            if (oldHash != null && !oldHash.equals(newHash)) {
-                System.out.println("Datei geändert! Rollback wird durchgeführt: " + filePath);
-                rollbackSnapshot();
-            } else {
-                System.out.println("Datei geöffnet: " + filePath);
-                fileHashes.put(filePath.toString(), newHash);
+            if (lastHash != null && !lastHash.equals(newHash)) {
+                System.out.println("WARNUNG: Datei wurde extern geändert: " + filePath);
             }
+            lastKnownHashes.put(filePath.toString(), newHash);
         } catch (IOException | NoSuchAlgorithmException e) {
             System.err.println("Fehler beim Verarbeiten der Datei: " + e.getMessage());
+        }
+    }
+
+    public static void onFileSave(Path filePath) {
+        try {
+            String savedHash = calculateHash(filePath);
+            String initialHash = initialHashes.get(filePath.toString());
+            String lastHash = lastKnownHashes.get(filePath.toString());
+
+            if (lastHash != null && !lastHash.equals(savedHash) && !lastHash.equals(initialHash)) {
+                System.out.println("Externe Änderung erkannt! Rollback wird durchgeführt: " + filePath);
+                rollbackSnapshot();
+            }
+            lastKnownHashes.put(filePath.toString(), savedHash);
+        } catch (IOException | NoSuchAlgorithmException e) {
+            System.err.println("Fehler beim Speichern der Datei: " + e.getMessage());
         }
     }
 
