@@ -15,3 +15,7 @@ zpool get all [poolname]
 
 # delete all snapshots
 sudo zfs list -H -o name -t snapshot | xargs -n 1 sudo zfs destroy
+
+# compile and run fanotify
+gcc -o fanotify fanotify.c
+sudo ./fanotify
