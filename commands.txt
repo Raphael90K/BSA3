@@ -12,3 +12,6 @@ zfs list
 
 # additional info
 zpool get all [poolname]
+
+# delete all snapshots
+sudo zfs list -H -o name -t snapshot | xargs -n 1 sudo zfs destroy

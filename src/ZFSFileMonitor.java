@@ -2,13 +2,14 @@ import java.io.*;
 import java.nio.file.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class ZFSFileMonitor {
     private static final String WATCH_DIR = "/zfs";
-    private static final String ZFS_DATASET = "zfs";
-    private static final Map<String, String> initialHashes = new HashMap<>();
+    private static final String ZFS_POOL = "zfs";
     private static final Map<String, String> lastKnownHashes = new HashMap<>();
+    private static String currentSnapshot = ""; // Speichert den aktuellen Snapshot-Namen
 
     public static void main(String[] args) throws IOException, NoSuchAlgorithmException {
         WatchService watchService = FileSystems.getDefault().newWatchService();
@@ -16,8 +17,8 @@ public class ZFSFileMonitor {
         path.register(watchService, StandardWatchEventKinds.ENTRY_MODIFY, StandardWatchEventKinds.ENTRY_CREATE);
 
         System.out.println("Überwachung gestartet...");
-        createSnapshot();
         initializeHashes();
+        createSnapshot(); // Initialen Snapshot erstellen
 
         while (true) {
             WatchKey key;
@@ -33,7 +34,6 @@ public class ZFSFileMonitor {
 
                 if (kind == StandardWatchEventKinds.ENTRY_CREATE || kind == StandardWatchEventKinds.ENTRY_MODIFY) {
                     handleFileChange(filePath);
-                    onFileSave(filePath);
                 }
             }
             key.reset();
@@ -44,7 +44,6 @@ public class ZFSFileMonitor {
         Files.walk(Paths.get(WATCH_DIR)).filter(Files::isRegularFile).forEach(file -> {
             try {
                 String hash = calculateHash(file);
-                initialHashes.put(file.toString(), hash);
                 lastKnownHashes.put(file.toString(), hash);
             } catch (IOException | NoSuchAlgorithmException e) {
                 System.err.println("Fehler beim Initialisieren des Hashes: " + e.getMessage());
@@ -54,28 +53,26 @@ public class ZFSFileMonitor {
 
     private static void handleFileChange(Path filePath) {
         try {
-            String newHash = calculateHash(filePath);
+            String snapshotHash = getLatestSnapshotHash(filePath);
             String lastHash = lastKnownHashes.get(filePath.toString());
 
-            if (lastHash != null && !lastHash.equals(newHash)) {
-                System.out.println("WARNUNG: Datei wurde extern geändert: " + filePath);
+            System.out.printf("[%s] %s: %s\n", filePath, snapshotHash, lastHash);
+            if (lastHash != null && !lastHash.equals(snapshotHash) && !snapshotHash.isEmpty()) {
+                System.out.println("WARNUNG: Datei wurde extern geändert! Rollback wird durchgeführt: " + filePath);
+                rollbackSnapshot();
+            } else {
+                onFileSave(filePath);
             }
-            lastKnownHashes.put(filePath.toString(), newHash);
         } catch (IOException | NoSuchAlgorithmException e) {
             System.err.println("Fehler beim Verarbeiten der Datei: " + e.getMessage());
         }
     }
 
     public static void onFileSave(Path filePath) {
+        createSnapshot(); // Erstelle Snapshot nach Dateiänderung
+        System.out.println("Snapshot nach erfolgreicher Speicherung erstellt: " + filePath);
         try {
             String savedHash = calculateHash(filePath);
-            String initialHash = initialHashes.get(filePath.toString());
-            String lastHash = lastKnownHashes.get(filePath.toString());
-
-            if (lastHash != null && !lastHash.equals(savedHash) && !lastHash.equals(initialHash)) {
-                System.out.println("Externe Änderung erkannt! Rollback wird durchgeführt: " + filePath);
-                rollbackSnapshot();
-            }
             lastKnownHashes.put(filePath.toString(), savedHash);
         } catch (IOException | NoSuchAlgorithmException e) {
             System.err.println("Fehler beim Speichern der Datei: " + e.getMessage());
@@ -99,11 +96,36 @@ public class ZFSFileMonitor {
         return sb.toString();
     }
 
+    private static String getLatestSnapshotHash(Path filePath) throws IOException, NoSuchAlgorithmException {
+        Path filePathInSnapshot = getLatestSnapshotPath(filePath);
+        System.out.println(filePathInSnapshot);
+        if (Files.exists(filePathInSnapshot)) {
+            return calculateHash(filePathInSnapshot);
+        } else {
+            System.err.println("Kein Snapshot gefunden: " + filePathInSnapshot);
+            return "";
+        }
+    }
+
+    private static Path getLatestSnapshotPath(Path filePath) {
+        return Paths.get("/zfs/.zfs/snapshot/" + currentSnapshot.split("@")[1] + "/" + filePath.getFileName());
+    }
+
+    private static String getTimestampWithNanoseconds() {
+        long currentTimeMillis = System.currentTimeMillis();
+        int nanoseconds = (int) (System.nanoTime() % 1_000_000_000); // Nanosekunden innerhalb der Sekunde
+        String timeString = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new Date(currentTimeMillis));
+        return timeString + "_" + String.format("%09d", nanoseconds); // Sorgt für 9-stellige Nanosekunden
+    }
+
     private static void createSnapshot() {
         try {
-            Process process = new ProcessBuilder("zfs", "snapshot", ZFS_DATASET + "@autosnap").start();
+            String timestamp = getTimestampWithNanoseconds();
+            String snapshotName = ZFS_POOL + "@autosnap_" + timestamp;
+            Process process = new ProcessBuilder("zfs", "snapshot", snapshotName).start();
             process.waitFor();
-            System.out.println("Snapshot erstellt.");
+            currentSnapshot = snapshotName; // Speichern des aktuellen Snapshots
+            System.out.println("Snapshot erstellt: " + snapshotName);
         } catch (IOException | InterruptedException e) {
             System.err.println("Fehler beim Erstellen des Snapshots: " + e.getMessage());
         }
@@ -111,9 +133,9 @@ public class ZFSFileMonitor {
 
     private static void rollbackSnapshot() {
         try {
-            Process process = new ProcessBuilder("zfs", "rollback", ZFS_DATASET + "@autosnap").start();
+            Process process = new ProcessBuilder("zfs", "rollback", currentSnapshot).start();
             process.waitFor();
-            System.out.println("Rollback durchgeführt.");
+            System.out.println("Rollback durchgeführt: " + currentSnapshot);
         } catch (IOException | InterruptedException e) {
             System.err.println("Fehler beim Rollback: " + e.getMessage());
         }
