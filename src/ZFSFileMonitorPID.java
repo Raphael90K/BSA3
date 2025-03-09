@@ -5,12 +5,23 @@ import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-public class ZFSFileMonitor {
+public class ZFSFileMonitorPID {
     private static final String WATCH_DIR = "/zfs";
     private static final String ZFS_POOL = "zfs";
     private static final Map<String, String> lastKnownHashes = new HashMap<>();
-    private static final Map<String, String> openedFileHashes = new HashMap<>();
+    private static final Map<String, FileMetadata> openedFileMetadata = new HashMap<>();
     private static String currentSnapshot = ""; // Speichert den aktuellen Snapshot-Namen
+
+    // Datei-Metadaten (Hash + PID)
+    static class FileMetadata {
+        String hash;
+        long pid;  // Prozess-ID
+
+        FileMetadata(String hash, long pid) {
+            this.hash = hash;
+            this.pid = pid;
+        }
+    }
 
     public static void main(String[] args) throws IOException, NoSuchAlgorithmException {
         WatchService watchService = FileSystems.getDefault().newWatchService();
@@ -55,14 +66,15 @@ public class ZFSFileMonitor {
     private static void handleFileChange(Path filePath) {
         try {
             String snapshotHash = getLatestSnapshotHash(filePath);
-            String lastHash = lastKnownHashes.get(filePath.toString());
+            FileMetadata metadata = openedFileMetadata.get(filePath.toString());  // Hole die gespeicherten Metadaten (Hash + PID)
 
-            System.out.printf("[%s] %s: %s\n", filePath, snapshotHash, lastHash);
-            if (lastHash != null && !lastHash.equals(snapshotHash) && !snapshotHash.isEmpty()) {
+            System.out.printf("[%s] Snapshot-Hash: %s vs gespeicherter Hash: %s (PID: %d)\n", filePath, snapshotHash, metadata != null ? metadata.hash : "null", metadata != null ? metadata.pid : -1);
+
+            if (metadata != null && !metadata.hash.equals(snapshotHash) && !snapshotHash.isEmpty()) {
                 System.out.println("WARNUNG: Datei wurde extern geändert! Rollback wird durchgeführt: " + filePath);
-                rollbackSnapshot();
+                rollbackSnapshot();  // Rollback durchführen
             } else {
-                onFileSave(filePath);
+                onFileSave(filePath);  // Snapshot erstellen
             }
         } catch (IOException | NoSuchAlgorithmException e) {
             System.err.println("Fehler beim Verarbeiten der Datei: " + e.getMessage());
@@ -70,11 +82,19 @@ public class ZFSFileMonitor {
     }
 
     public static void onFileSave(Path filePath) {
-        createSnapshot(); // Erstelle Snapshot nach Dateiänderung
-        System.out.println("Snapshot nach erfolgreicher Speicherung erstellt: " + filePath);
         try {
-            String savedHash = calculateHash(filePath);
-            lastKnownHashes.put(filePath.toString(), savedHash);
+            // Berechne den Hash der Datei
+            String openedFileHash = calculateHash(filePath);
+
+            // Hole die PID des aktuellen Prozesses
+            long pid = ProcessHandle.current().pid();
+
+            // Speichere die Datei-Metadaten (Hash + PID)
+            openedFileMetadata.put(filePath.toString(), new FileMetadata(openedFileHash, pid));
+
+            createSnapshot(); // Erstelle Snapshot nach Dateiänderung
+            System.out.println("Snapshot nach erfolgreicher Speicherung erstellt: " + filePath);
+            lastKnownHashes.put(filePath.toString(), openedFileHash);  // Speichere den Hash im lastKnownHashes
         } catch (IOException | NoSuchAlgorithmException e) {
             System.err.println("Fehler beim Speichern der Datei: " + e.getMessage());
         }
@@ -99,7 +119,6 @@ public class ZFSFileMonitor {
 
     private static String getLatestSnapshotHash(Path filePath) throws IOException, NoSuchAlgorithmException {
         Path filePathInSnapshot = getLatestSnapshotPath(filePath);
-        System.out.println(filePathInSnapshot);
         if (Files.exists(filePathInSnapshot)) {
             return calculateHash(filePathInSnapshot);
         } else {
