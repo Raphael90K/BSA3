@@ -23,58 +23,48 @@ public class ZFSFileMonitorPID {
         System.out.println("🔍 Überwachung gestartet...");
         createSnapshot(); // Initialer Snapshot
 
+        // id,EVENT,
         String line;
 
         while ((line = pr.readLine()) != null) {
-            System.out.println(line);
+            SemaphoreControl.sem_post();
+            Event ev = Event.fromString(line);
+            System.out.println(ev);
+            if (ev.isTxt()) {
+
+                handleFileChange(ev);
+            }
+
+            SemaphoreControl.sem_post();
         }
+        pr.close();
     }
 
-    private static void handleFileChange(Path filePath) {
+    private static void handleFileChange(Event ev) {
         try {
-            Set<Integer> processes = getProcessesUsingFile(filePath);
-            String snapshotHash = getLatestSnapshotHash(filePath);
-
-            // Wenn keine Prozesse die Datei nutzen, gibt es nichts zu prüfen
-            if (processes.isEmpty()) {
-                return;
-            }
+            String snapshotHash = getLatestSnapshotHash(Path.of(ev.getPath()));
+            String currentHash = calculateHash(Path.of(ev.getPath()));
 
             // Prüfe, ob ein Prozess die Datei verändert hat, während ein anderer sie nutzte
-            for (int pid : processes) {
-                String lastProcessHash = processHashes
-                        .getOrDefault(filePath.toString(), new HashMap<>())
-                        .get(pid);
-                String currentHash = calculateHash(filePath);
+            if (ev.getType() == EventType.MODIFY) {
+                String lastProcessHash = processHashes.getOrDefault(ev.getPath(), new HashMap<>()).get(ev.getPID());
 
                 if (lastProcessHash != null && !lastProcessHash.equals(snapshotHash) && !lastProcessHash.equals(currentHash)) {
-                    System.out.println("🚨 Inkonsistenz erkannt! Prozess " + pid + " hat die Datei geändert, aber es gab parallele Änderungen. Rollback!");
+                    System.out.println("🚨 Inkonsistenz erkannt! Prozess " + ev.getPID() + " hat die Datei geändert, aber es gab parallele Änderungen. Rollback!");
                     rollbackSnapshot();
-                    return;
                 }
 
-                // Speichere den neuen Hash für diesen Prozess
-                processHashes.computeIfAbsent(filePath.toString(), k -> new HashMap<>()).put(pid, currentHash);
             }
+
+            // Speichere den neuen Hash für diesen Prozess
+            processHashes.computeIfAbsent(ev.getPath(), k -> new HashMap<>()).put(ev.getPID(), currentHash);
+            System.out.println(processHashes);
+            createSnapshot();
+
 
         } catch (IOException | NoSuchAlgorithmException e) {
             System.err.println("⚠ Fehler beim Verarbeiten der Datei: " + e.getMessage());
         }
-    }
-
-    private static Set<Integer> getProcessesUsingFile(Path filePath) throws IOException {
-        Set<Integer> pids = new HashSet<>();
-        Process process = new ProcessBuilder("lsof", "-t", filePath.toString()).start();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                try {
-                    pids.add(Integer.parseInt(line.trim()));
-                } catch (NumberFormatException ignored) {
-                }
-            }
-        }
-        return pids;
     }
 
     private static String calculateHash(Path filePath) throws IOException, NoSuchAlgorithmException {
@@ -110,8 +100,10 @@ public class ZFSFileMonitorPID {
 
     private static void createSnapshot() {
         try {
+            // Hole die aktuelle Zeit in Nanosekunden
+            long nanoTime = System.nanoTime();
             String timestamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new Date());
-            String snapshotName = ZFS_POOL + "@autosnap_" + timestamp;
+            String snapshotName = ZFS_POOL + "@autosnap_" + timestamp + "_" + nanoTime;
             Process process = new ProcessBuilder("zfs", "snapshot", snapshotName).start();
             process.waitFor();
             currentSnapshot = snapshotName;
@@ -131,3 +123,4 @@ public class ZFSFileMonitorPID {
         }
     }
 }
+
