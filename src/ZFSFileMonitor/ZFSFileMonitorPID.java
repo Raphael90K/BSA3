@@ -14,11 +14,17 @@ public class ZFSFileMonitorPID {
     private static final Map<String, Map<Integer, String>> processHashes = new HashMap<>();
     private static String currentSnapshot = "";
 
+    private static final RingBuffer<EventType> rb = new RingBuffer<>(5);
+    private static Timer timer = new Timer(1000);
+
+
     public static void main(String[] args) throws IOException, NoSuchAlgorithmException {
         WatchService watchService = FileSystems.getDefault().newWatchService();
         Path path = Paths.get(WATCH_DIR);
         path.register(watchService, StandardWatchEventKinds.ENTRY_MODIFY);
         PipeReader pr = new PipeReader(PIPE_NAME);
+
+
 
         System.out.println("🔍 Überwachung gestartet...");
         createSnapshot(); // Initialer Snapshot
@@ -31,7 +37,7 @@ public class ZFSFileMonitorPID {
             Event ev = Event.fromString(line);
             System.out.println(ev);
             if (ev.isTxt()) {
-
+                timer.measureTime();
                 handleFileChange(ev);
             }
 
@@ -45,9 +51,12 @@ public class ZFSFileMonitorPID {
             String snapshotHash = getLatestSnapshotHash(Path.of(ev.getPath()));
             String currentHash = calculateHash(Path.of(ev.getPath()));
 
+            System.out.println("elapsed time:" + timer.getTimeDifference());
+
             // Prüfe, ob ein Prozess die Datei verändert hat, während ein anderer sie nutzte
             if (ev.getType() == EventType.MODIFY) {
                 String lastProcessHash = processHashes.getOrDefault(ev.getPath(), new HashMap<>()).get(ev.getPID());
+
 
                 if (lastProcessHash != null && !lastProcessHash.equals(snapshotHash) && !lastProcessHash.equals(currentHash)) {
                     System.out.println("🚨 Inkonsistenz erkannt! Prozess " + ev.getPID() + " hat die Datei geändert, aber es gab parallele Änderungen. Rollback!");
