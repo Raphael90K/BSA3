@@ -26,7 +26,7 @@ public class RingBuffer<T> {
 
     public T peekIndex(int index) {
         if (size <= index) {
-            throw new NoSuchElementException("size <= index");
+            throw new NoSuchElementException("size " + size + " <= index "+ index);
         }
         return buffer[(tail - 1 - index + capacity) % capacity];
     }

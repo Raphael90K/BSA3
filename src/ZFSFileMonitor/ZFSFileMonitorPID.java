@@ -26,8 +26,6 @@ public class ZFSFileMonitorPID {
         path.register(watchService, StandardWatchEventKinds.ENTRY_MODIFY);
         PipeReader pr = new PipeReader(PIPE_NAME);
 
-
-
         System.out.println("🔍 Überwachung gestartet...");
         createSnapshot(); // Initialer Snapshot
 
@@ -61,11 +59,10 @@ public class ZFSFileMonitorPID {
                 RingBuffer<String> lastProcessHashes = processHashes.getOrDefault(ev.getPath(), new HashMap<>()).get(ev.getPID());
                 String processHash = lastProcessHashes.peekIndex(index);
 
-                if (processHash != null && !processHash.equals(snapshotHash) && !processHash.equals(currentHash)) {
+                if (!processHash.equals(snapshotHash) || !processHash.equals(currentHash)) {
                     System.out.println("🚨 Inkonsistenz erkannt! Prozess " + ev.getPID() + " hat die Datei geändert, aber es gab parallele Änderungen. Rollback!");
                     rollbackSnapshot(index);
                 }
-
             }
 
             // Speichere den neuen Hash für diesen Prozess
@@ -76,7 +73,7 @@ public class ZFSFileMonitorPID {
             createSnapshot();
 
 
-        } catch (IOException | NoSuchAlgorithmException e) {
+        } catch (IOException | NoSuchAlgorithmException | NoSuchElementException e) {
             System.err.println("⚠ Fehler beim Verarbeiten der Datei: " + e.getMessage());
         }
     }
