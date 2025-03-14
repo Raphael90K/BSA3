@@ -49,11 +49,12 @@ public class ZFSFileMonitorPID {
 
     private static void handleFileChange(Event ev) {
         try {
-            String snapshotHash = getLatestSnapshotHash(Path.of(ev.getPath()));
+            int index = timer.calcIndex();
+            String snapshotHash = getLatestSnapshotHash(Path.of(ev.getPath()), index);
             String currentHash = calculateHash(Path.of(ev.getPath()));
 
             System.out.println("elapsed time:" + timer.getTimeDifference());
-            int index = timer.calcIndex();
+
 
             // Prüfe, ob ein Prozess die Datei verändert hat, während ein anderer sie nutzte
             if (ev.getType() == EventType.MODIFY) {
@@ -62,7 +63,7 @@ public class ZFSFileMonitorPID {
 
                 if (processHash != null && !processHash.equals(snapshotHash) && !processHash.equals(currentHash)) {
                     System.out.println("🚨 Inkonsistenz erkannt! Prozess " + ev.getPID() + " hat die Datei geändert, aber es gab parallele Änderungen. Rollback!");
-                    rollbackSnapshot();
+                    rollbackSnapshot(index);
                 }
 
             }
@@ -97,8 +98,8 @@ public class ZFSFileMonitorPID {
         return sb.toString();
     }
 
-    private static String getLatestSnapshotHash(Path filePath) throws IOException, NoSuchAlgorithmException {
-        Path filePathInSnapshot = getLatestSnapshotPath(filePath);
+    private static String getLatestSnapshotHash(Path filePath, int index) throws IOException, NoSuchAlgorithmException {
+        Path filePathInSnapshot = getLatestSnapshotPath(filePath, index);
         if (Files.exists(filePathInSnapshot)) {
             return calculateHash(filePathInSnapshot);
         } else {
@@ -107,8 +108,7 @@ public class ZFSFileMonitorPID {
         }
     }
 
-    private static Path getLatestSnapshotPath(Path filePath) {
-        int index = timer.calcIndex();
+    private static Path getLatestSnapshotPath(Path filePath, int index) {
         String currentSnapshot = currentSnapshots.peekIndex(index);
         return Paths.get("/zfs/.zfs/snapshot/" + currentSnapshot.split("@")[1] + "/" + filePath.getFileName());
     }
@@ -128,9 +128,8 @@ public class ZFSFileMonitorPID {
         }
     }
 
-    private static void rollbackSnapshot() {
+    private static void rollbackSnapshot(int index) {
         try {
-            int index = timer.calcIndex();
             String currentSnapshot = currentSnapshots.peekIndex(index);
             Process process = new ProcessBuilder("zfs", "rollback", currentSnapshot).start();
             process.waitFor();
