@@ -21,20 +21,34 @@ public class RingBuffer<T> {
     public void enqueue(T item) {
         buffer[tail] = item;
         tail = (tail + 1) % capacity;
-        size++;
+        size = size == capacity ? size : size + 1;
     }
 
-    public T peekFirst() {
-        if (isEmpty()) {
-            throw new NoSuchElementException("RingBuffer is empty");
+    public T peekIndex(int index) {
+        if (size <= index) {
+            throw new NoSuchElementException("size <= index");
         }
-        return buffer[tail - 1];
+        return buffer[(tail - 1 - index + capacity) % capacity];
     }
 
-    public T peekSecond() {
-        if (size < 2) {
-            throw new NoSuchElementException("Size < 2");
+    @Override
+    public String toString() {
+        StringBuilder string = new StringBuilder("[");
+        for (int i = 0; i < size; i++) {
+            string.append(this.peekIndex(i));
+            string.append(i == size - 1 ? "]" : ",");
         }
-        return buffer[tail - 2 % capacity];
+        return string.toString();
+    }
+
+    public static void main(String[] args) {
+        RingBuffer<String> rb = new RingBuffer<>(3);
+        rb.enqueue("a");
+        rb.enqueue("b");
+        rb.enqueue("c");
+        rb.enqueue("d");
+        rb.enqueue("e");
+
+        System.out.println(rb);
     }
 }

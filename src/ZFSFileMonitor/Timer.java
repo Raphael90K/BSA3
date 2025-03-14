@@ -3,10 +3,10 @@ package ZFSFileMonitor;
 public class Timer {
     private long lastEventTime = 0;
     private long secondLastEventTime = 0;
-    private final int maxTDinNs;
+    private final int maxTDinMs;
 
     public Timer(int maxTDinMs) {
-        this.maxTDinNs = maxTDinMs;
+        this.maxTDinMs = maxTDinMs;
     }
 
     public void measureTime() {
@@ -19,16 +19,17 @@ public class Timer {
     }
 
     public boolean maxTDNotReached(){
-        return (lastEventTime - secondLastEventTime) < maxTDinNs;
+        return (lastEventTime - secondLastEventTime) < maxTDinMs;
+    }
+
+    public int calcIndex(){
+        return (lastEventTime - secondLastEventTime) < maxTDinMs ? 1 : 0;
     }
 
     public static void main (String[] args) throws InterruptedException {
-        Timer timer = new Timer(10);
-
+        Timer timer = new Timer(1000);
         timer.measureTime();
-        Thread.sleep(5);
         timer.measureTime();
-        System.out.println(timer.getTimeDifference());
-        System.out.println(timer.maxTDNotReached());
+        System.out.println(timer.calcIndex());
     }
 }

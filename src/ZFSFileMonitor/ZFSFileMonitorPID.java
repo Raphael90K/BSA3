@@ -11,10 +11,12 @@ public class ZFSFileMonitorPID {
     private static final String WATCH_DIR = "/zfs";
     private static final String ZFS_POOL = "zfs";
     private static final String PIPE_NAME = "/tmp/fanotify_pipe";
-    private static final Map<String, Map<Integer, String>> processHashes = new HashMap<>();
-    private static String currentSnapshot = "";
+    private static final int CAPACITY = 3;
 
-    private static final RingBuffer<EventType> rb = new RingBuffer<>(5);
+    private static final Map<String, Map<Integer, RingBuffer<String>>> processHashes = new HashMap<>();
+    private static final RingBuffer<String> currentSnapshots = new RingBuffer<>(CAPACITY);
+
+    private static final RingBuffer<EventType> rb = new RingBuffer<>(CAPACITY);
     private static Timer timer = new Timer(1000);
 
 
@@ -29,7 +31,7 @@ public class ZFSFileMonitorPID {
         System.out.println("🔍 Überwachung gestartet...");
         createSnapshot(); // Initialer Snapshot
 
-        // id,EVENT,
+        // id,path,EVENT,PID
         String line;
 
         while ((line = pr.readLine()) != null) {
@@ -40,7 +42,6 @@ public class ZFSFileMonitorPID {
                 timer.measureTime();
                 handleFileChange(ev);
             }
-
             SemaphoreControl.sem_post();
         }
         pr.close();
@@ -52,13 +53,14 @@ public class ZFSFileMonitorPID {
             String currentHash = calculateHash(Path.of(ev.getPath()));
 
             System.out.println("elapsed time:" + timer.getTimeDifference());
+            int index = timer.calcIndex();
 
             // Prüfe, ob ein Prozess die Datei verändert hat, während ein anderer sie nutzte
             if (ev.getType() == EventType.MODIFY) {
-                String lastProcessHash = processHashes.getOrDefault(ev.getPath(), new HashMap<>()).get(ev.getPID());
+                RingBuffer<String> lastProcessHashes = processHashes.getOrDefault(ev.getPath(), new HashMap<>()).get(ev.getPID());
+                String processHash = lastProcessHashes.peekIndex(index);
 
-
-                if (lastProcessHash != null && !lastProcessHash.equals(snapshotHash) && !lastProcessHash.equals(currentHash)) {
+                if (processHash != null && !processHash.equals(snapshotHash) && !processHash.equals(currentHash)) {
                     System.out.println("🚨 Inkonsistenz erkannt! Prozess " + ev.getPID() + " hat die Datei geändert, aber es gab parallele Änderungen. Rollback!");
                     rollbackSnapshot();
                 }
@@ -66,7 +68,9 @@ public class ZFSFileMonitorPID {
             }
 
             // Speichere den neuen Hash für diesen Prozess
-            processHashes.computeIfAbsent(ev.getPath(), k -> new HashMap<>()).put(ev.getPID(), currentHash);
+            processHashes.computeIfAbsent(ev.getPath(), k -> new HashMap<>())
+                            .computeIfAbsent(ev.getPID(), k -> new RingBuffer<>(CAPACITY))
+                            .enqueue(currentHash);
             System.out.println(processHashes);
             createSnapshot();
 
@@ -104,6 +108,8 @@ public class ZFSFileMonitorPID {
     }
 
     private static Path getLatestSnapshotPath(Path filePath) {
+        int index = timer.calcIndex();
+        String currentSnapshot = currentSnapshots.peekIndex(index);
         return Paths.get("/zfs/.zfs/snapshot/" + currentSnapshot.split("@")[1] + "/" + filePath.getFileName());
     }
 
@@ -115,7 +121,7 @@ public class ZFSFileMonitorPID {
             String snapshotName = ZFS_POOL + "@autosnap_" + timestamp + "_" + nanoTime;
             Process process = new ProcessBuilder("zfs", "snapshot", snapshotName).start();
             process.waitFor();
-            currentSnapshot = snapshotName;
+            currentSnapshots.enqueue(snapshotName);
             System.out.println("📸 Snapshot erstellt: " + snapshotName);
         } catch (IOException | InterruptedException e) {
             System.err.println("⚠ Fehler beim Erstellen des Snapshots: " + e.getMessage());
@@ -124,6 +130,8 @@ public class ZFSFileMonitorPID {
 
     private static void rollbackSnapshot() {
         try {
+            int index = timer.calcIndex();
+            String currentSnapshot = currentSnapshots.peekIndex(index);
             Process process = new ProcessBuilder("zfs", "rollback", currentSnapshot).start();
             process.waitFor();
             System.out.println("🔄 Rollback durchgeführt: " + currentSnapshot);
