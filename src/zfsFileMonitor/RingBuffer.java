@@ -1,4 +1,4 @@
-package ZFSFileMonitor;
+package zfsFileMonitor;
 
 import java.util.NoSuchElementException;
 
@@ -45,14 +45,4 @@ public class RingBuffer<T> {
         return string.toString();
     }
 
-    public static void main(String[] args) {
-        RingBuffer<String> rb = new RingBuffer<>(3);
-        rb.enqueue("a");
-        rb.enqueue("b");
-        rb.enqueue("c");
-        rb.enqueue("d");
-        rb.enqueue("e");
-
-        System.out.println(rb);
-    }
 }

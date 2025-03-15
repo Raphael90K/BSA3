@@ -1,4 +1,4 @@
-package ZFSFileMonitor;
+package zfsFileMonitor;
 
 import java.io.*;
 import java.nio.file.*;
@@ -41,7 +41,7 @@ public class ZFSFileMonitorPID {
             System.out.println(ev);
             if (ev.isTxt()) {
                 timer.measureTime();
-                System.out.println("elapsed time:" + timer.getTimeDifference());
+                // System.out.println("elapsed time:" + timer.getTimeDifference());
 
                 handleFileChange(ev);
             }
@@ -52,21 +52,26 @@ public class ZFSFileMonitorPID {
 
     private static void handleFileChange(Event ev) {
         try {
-            lastPIDs.enqueue(ev.getPID());
-            System.out.printf("lastPIDs: %s\n", lastPIDs);
+            // lastPIDs.enqueue(ev.getPID());
+            // System.out.printf("lastPIDs: %s\n", lastPIDs);
             int index = timer.calcIndex();
-            System.out.printf("index: %d\n", index);
+            // System.out.printf("index: %d\n", index);
             String snapshotHash = getLatestSnapshotHash(Path.of(ev.getPath()), index);
             String currentHash = calculateHash(Path.of(ev.getPath()));
-            System.out.printf("snapshotHash: %s\n", snapshotHash);
-            System.out.printf("currentHash: %s\n", currentHash);
-            System.out.printf("snapshot %s\n", currentSnapshots.peekIndex(index));
+            // System.out.printf("snapshotHash: %s\n", snapshotHash);
+            // System.out.printf("currentHash: %s\n", currentHash);
+            // System.out.printf("snapshot %s\n", currentSnapshots.peekIndex(index));
 
             // Prüfe, ob ein Prozess die Datei verändert hat, während ein anderer sie nutzte
-            if (ev.getType() == EventType.MODIFY) {
+            if (ev.getType() == EventType.MODIFY && !snapshotHash.isEmpty()) {
                 RingBuffer<String> lastProcessHashes = processHashes.getOrDefault(ev.getPath(), new HashMap<>()).get(ev.getPID());
-                String processHash = lastProcessHashes.peekIndex(index);
-                System.out.printf("processHash: %s\n", processHash);
+                String processHash;
+                try {
+                    processHash = lastProcessHashes.peekIndex(index);
+                } catch (Exception e) {
+                    processHash = "";
+                }
+                //System.out.printf("processHash: %s\n", processHash);
 
                 if (!processHash.equals(snapshotHash)) {
                     System.out.println("🚨 Inkonsistenz erkannt! Prozess " + ev.getPID() + " hat die Datei geändert, aber es gab parallele Änderungen. Rollback!");
@@ -117,7 +122,7 @@ public class ZFSFileMonitorPID {
 
     private static Path getLatestSnapshotPath(Path filePath, int index) {
         String currentSnapshot = currentSnapshots.peekIndex(index);
-        return Paths.get("/zfs/.zfs/snapshot/" + currentSnapshot.split("@")[1] + "/" + filePath.getFileName());
+        return Paths.get(WATCH_DIR + "/.zfs/snapshot/" + currentSnapshot.split("@")[1] + "/" + filePath.getFileName());
     }
 
     private static void createSnapshot() {

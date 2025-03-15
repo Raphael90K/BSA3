@@ -8,11 +8,12 @@ public class ProcessA {
     private static final int SLEEP_MILLIS = 1000;
     private static final int iterations = 20;
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws Exception {
+        SimpleWrite.write_mem('Z');
         for (int i = 0; i < iterations; i++) {
             System.out.printf("iteration: %d\n", i);
             process();
-            Thread.sleep(2000);
+            Thread.sleep(5000);
         }
     }
 

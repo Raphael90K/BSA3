@@ -1,4 +1,4 @@
-package ZFSFileMonitor;
+package zfsFileMonitor;
 
 import java.io.IOException;
 

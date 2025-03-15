@@ -1,4 +1,4 @@
-package ZFSFileMonitor;
+package zfsFileMonitor;
 
 public enum EventType {
     OPEN,

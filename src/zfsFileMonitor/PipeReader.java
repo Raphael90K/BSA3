@@ -1,6 +1,5 @@
-package ZFSFileMonitor;
+package zfsFileMonitor;
 
-import java.nio.file.*;
 import java.io.*;
 
 public class PipeReader {

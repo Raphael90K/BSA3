@@ -1,4 +1,4 @@
-package ZFSFileMonitor;
+package zfsFileMonitor;
 
 public class Event {
     private int id;

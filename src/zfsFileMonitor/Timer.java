@@ -1,4 +1,4 @@
-package ZFSFileMonitor;
+package zfsFileMonitor;
 
 public class Timer {
     private long lastEventTime = 0;
@@ -26,10 +26,4 @@ public class Timer {
         return (lastEventTime - secondLastEventTime) < maxTDinMs ? 1 : 0;
     }
 
-    public static void main (String[] args) throws InterruptedException {
-        Timer timer = new Timer(500);
-        timer.measureTime();
-        timer.measureTime();
-        System.out.println(timer.getTimeDifference());
-    }
 }
