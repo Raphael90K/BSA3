@@ -1,11 +1,10 @@
 package test;
 
 import java.io.*;
-import java.nio.file.*;
 
 public class ProcessB {
-    private static final String OUTPUT_FILE = "/zfs/1000.txt";
-    private static final int SLEEP_MILLIS = 1000;
+    private static final String OUTPUT_FILE = "/zfs/5000.txt";
+    private static final int SLEEP_MILLIS = 5000;
     private static final int iterations = 20;
 
     public static void main(String[] args) {
