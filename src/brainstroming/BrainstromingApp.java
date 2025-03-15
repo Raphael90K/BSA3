@@ -16,15 +16,7 @@ public class BrainstromingApp {
     private static BufferedWriter writer;
 
     public static void main(String[] args) {
-        ensureDirectoryExists();
         showFileSelectionMenu();
-    }
-
-    private static void ensureDirectoryExists() {
-        File directory = new File(DIRECTORY_PATH);
-        if (!directory.exists()) {
-            directory.mkdir();
-        }
     }
 
     private static void showFileSelectionMenu() {
