@@ -1,24 +1,26 @@
 package brainstroming;
 
-import org.jline.reader.*;
-import org.jline.terminal.*;
+import com.googlecode.lanterna.TerminalSize;
+import com.googlecode.lanterna.gui2.*;
+import com.googlecode.lanterna.screen.Screen;
+import com.googlecode.lanterna.terminal.DefaultTerminalFactory;
 
-import java.io.*;
+import java.io.IOException;
 import java.nio.file.*;
 import java.util.*;
 
 public class Brainstorming {
-    private static final String FILE_PATH = "brainstorming.txt";
+    private static String FILE_PATH;
     private static List<String> lines = new ArrayList<>();
-    private static Terminal terminal;
-    private static LineReader reader;
 
-    public static void main(String[] args) throws IOException {
-        terminal = TerminalBuilder.terminal();
-        reader = LineReaderBuilder.builder().terminal(terminal).build();
-
-        loadFile();
-        runEditor();
+    public static void main(String[] args) {
+        FILE_PATH = args.length == 0 ? "brainstorming.txt" : args[0];
+        try {
+            loadFile();
+            startEditor();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private static void loadFile() throws IOException {
@@ -30,74 +32,36 @@ public class Brainstorming {
         if (lines.isEmpty()) lines.add("");
     }
 
-    private static void runEditor() throws IOException {
-        while (true) {
-            displayFile();
-            String command = reader.readLine("Befehl (edit <nr>, add, delete <nr>, save, exit): ");
-            handleCommand(command);
-        }
-    }
+    private static void startEditor() throws IOException {
+        Screen screen = new DefaultTerminalFactory().createScreen();
+        screen.startScreen();
 
-    private static void displayFile() {
-        System.out.println("\n--- Datei Inhalt ---");
-        for (int i = 0; i < lines.size(); i++) {
-            System.out.println((i + 1) + ": " + lines.get(i));
-        }
-        System.out.println("---------------------\n");
-    }
+        Panel panel = new Panel();
+        panel.setLayoutManager(new LinearLayout(Direction.VERTICAL));
 
-    private static void handleCommand(String command) throws IOException {
-        if (command.startsWith("edit ")) {
-            editLine(command);
-        } else if (command.equals("add")) {
-            addLine();
-        } else if (command.startsWith("delete ")) {
-            deleteLine(command);
-        } else if (command.equals("save")) {
-            saveFile();
-        } else if (command.equals("exit")) {
-            System.out.println("Editor beendet.");
-            System.exit(0);
-        } else {
-            System.out.println("Unbekannter Befehl!");
-        }
-    }
+        TextBox textBox = new TextBox(new TerminalSize(70, 20)); // Anpassung der Editor-Größe
+        textBox.setText(String.join("\n", lines));
+        textBox.setVerticalFocusSwitching(true);
+        panel.addComponent(textBox);
 
-    private static void editLine(String command) {
-        try {
-            int lineNumber = Integer.parseInt(command.split(" ")[1]) - 1;
-            if (lineNumber >= 0 && lineNumber < lines.size()) {
-                String newText = reader.readLine("Neue Eingabe für Zeile " + (lineNumber + 1) + ": ");
-                lines.set(lineNumber, newText);
-            } else {
-                System.out.println("Ungültige Zeilennummer!");
+        Button saveButton = new Button("Speichern & Beenden", () -> {
+            try {
+                Files.write(Paths.get(FILE_PATH), Arrays.asList(textBox.getText().split("\n")));
+                screen.stopScreen();
+                System.out.println("Datei gespeichert!");
+                System.exit(0);
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-        } catch (Exception e) {
-            System.out.println("Fehlerhafte Eingabe!");
-        }
-    }
+        });
+        panel.addComponent(saveButton);
 
-    private static void addLine() {
-        String newText = reader.readLine("Neue Zeile: ");
-        lines.add(newText);
-    }
+        BasicWindow window = new BasicWindow("Texteditor");
+        window.setComponent(panel);
+        window.setHints(Arrays.asList(Window.Hint.FIXED_SIZE)); // Fenstergröße fixieren
+        window.setSize(new TerminalSize(90, 25)); // Fenstergröße setzen
 
-    private static void deleteLine(String command) {
-        try {
-            int lineNumber = Integer.parseInt(command.split(" ")[1]) - 1;
-            if (lineNumber >= 0 && lineNumber < lines.size()) {
-                lines.remove(lineNumber);
-                System.out.println("Zeile " + (lineNumber + 1) + " gelöscht.");
-            } else {
-                System.out.println("Ungültige Zeilennummer!");
-            }
-        } catch (Exception e) {
-            System.out.println("Fehlerhafte Eingabe!");
-        }
-    }
-
-    private static void saveFile() throws IOException {
-        Files.write(Paths.get(FILE_PATH), lines);
-        System.out.println("Datei gespeichert!");
+        MultiWindowTextGUI gui = new MultiWindowTextGUI(screen, new DefaultWindowManager(), new EmptySpace());
+        gui.addWindowAndWait(window);
     }
 }
