@@ -18,6 +18,10 @@ public class RingBuffer<T> {
         return size == 0;
     }
 
+    public int getSize() {
+        return size;
+    }
+
     public void enqueue(T item) {
         buffer[tail] = item;
         tail = (tail + 1) % capacity;

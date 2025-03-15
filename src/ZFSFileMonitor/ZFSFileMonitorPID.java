@@ -11,13 +11,15 @@ public class ZFSFileMonitorPID {
     private static final String WATCH_DIR = "/zfs";
     private static final String ZFS_POOL = "zfs";
     private static final String PIPE_NAME = "/tmp/fanotify_pipe";
-    private static final int CAPACITY = 3;
+    private static final int CAPACITY = 2;
 
     private static final Map<String, Map<Integer, RingBuffer<String>>> processHashes = new HashMap<>();
     private static final RingBuffer<String> currentSnapshots = new RingBuffer<>(CAPACITY);
 
-    private static final RingBuffer<EventType> rb = new RingBuffer<>(CAPACITY);
-    private static Timer timer = new Timer(1000);
+    private static final RingBuffer<Integer> lastPIDs = new RingBuffer<>(CAPACITY);
+    private static final Timer timer = new Timer(500);
+
+    private static int countRollbacks = 0;
 
 
     public static void main(String[] args) throws IOException, NoSuchAlgorithmException {
@@ -35,9 +37,12 @@ public class ZFSFileMonitorPID {
         while ((line = pr.readLine()) != null) {
             SemaphoreControl.sem_post();
             Event ev = Event.fromString(line);
+            System.out.println("\n##############################");
             System.out.println(ev);
             if (ev.isTxt()) {
                 timer.measureTime();
+                System.out.println("elapsed time:" + timer.getTimeDifference());
+
                 handleFileChange(ev);
             }
             SemaphoreControl.sem_post();
@@ -47,31 +52,36 @@ public class ZFSFileMonitorPID {
 
     private static void handleFileChange(Event ev) {
         try {
+            lastPIDs.enqueue(ev.getPID());
+            System.out.printf("lastPIDs: %s\n", lastPIDs);
             int index = timer.calcIndex();
+            System.out.printf("index: %d\n", index);
             String snapshotHash = getLatestSnapshotHash(Path.of(ev.getPath()), index);
             String currentHash = calculateHash(Path.of(ev.getPath()));
-
-            System.out.println("elapsed time:" + timer.getTimeDifference());
-
+            System.out.printf("snapshotHash: %s\n", snapshotHash);
+            System.out.printf("currentHash: %s\n", currentHash);
+            System.out.printf("snapshot %s\n", currentSnapshots.peekIndex(index));
 
             // Prüfe, ob ein Prozess die Datei verändert hat, während ein anderer sie nutzte
             if (ev.getType() == EventType.MODIFY) {
                 RingBuffer<String> lastProcessHashes = processHashes.getOrDefault(ev.getPath(), new HashMap<>()).get(ev.getPID());
                 String processHash = lastProcessHashes.peekIndex(index);
+                System.out.printf("processHash: %s\n", processHash);
 
-                if (!processHash.equals(snapshotHash) || !processHash.equals(currentHash)) {
+                if (!processHash.equals(snapshotHash)) {
                     System.out.println("🚨 Inkonsistenz erkannt! Prozess " + ev.getPID() + " hat die Datei geändert, aber es gab parallele Änderungen. Rollback!");
                     rollbackSnapshot(index);
+                    countRollbacks++;
                 }
             }
 
             // Speichere den neuen Hash für diesen Prozess
             processHashes.computeIfAbsent(ev.getPath(), k -> new HashMap<>())
-                            .computeIfAbsent(ev.getPID(), k -> new RingBuffer<>(CAPACITY))
-                            .enqueue(currentHash);
+                    .computeIfAbsent(ev.getPID(), k -> new RingBuffer<>(CAPACITY))
+                    .enqueue(currentHash);
             System.out.println(processHashes);
+            System.out.printf("Rollbacks: %d\n", countRollbacks);
             createSnapshot();
-
 
         } catch (IOException | NoSuchAlgorithmException | NoSuchElementException e) {
             System.err.println("⚠ Fehler beim Verarbeiten der Datei: " + e.getMessage());

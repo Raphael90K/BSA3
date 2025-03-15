@@ -27,9 +27,9 @@ public class Timer {
     }
 
     public static void main (String[] args) throws InterruptedException {
-        Timer timer = new Timer(1000);
+        Timer timer = new Timer(500);
         timer.measureTime();
         timer.measureTime();
-        System.out.println(timer.calcIndex());
+        System.out.println(timer.getTimeDifference());
     }
 }
