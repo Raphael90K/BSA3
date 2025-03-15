@@ -62,7 +62,7 @@ public class Brainstorming {
         });
         panel.addComponent(saveButton);
 
-        BasicWindow window = new BasicWindow("Texteditor");
+        BasicWindow window = new BasicWindow("Brainstorming App");
         window.setComponent(panel);
         window.setHints(Arrays.asList(Window.Hint.FIXED_SIZE)); // Fenstergröße fixieren
         window.setSize(new TerminalSize(90, 25)); // Fenstergröße setzen
