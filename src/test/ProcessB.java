@@ -4,10 +4,9 @@ import java.io.*;
 import java.nio.file.*;
 
 public class ProcessB {
-    private static final String STATUS_FILE = "status.txt";
-    private static final String OUTPUT_FILE = "/zfs/test.txt";
-    private static final int SLEEP_MILLIS = 2000;
-    private static final int iterations = 10;
+    private static final String OUTPUT_FILE = "/zfs/1000.txt";
+    private static final int SLEEP_MILLIS = 1000;
+    private static final int iterations = 20;
 
     public static void main(String[] args) {
         for (int i = 0; i < iterations; i++) {
@@ -18,33 +17,30 @@ public class ProcessB {
     public static void process() {
         try {
             // 1. Warten, bis A geöffnet hat
-            while (!"A_OPEN".equals(getStatus())) {
-                Thread.sleep(500);
+            while (!('B' == getStatus())) {
+                Thread.sleep(SLEEP_MILLIS);
             }
             // 2. Datei öffnen
-            System.out.println("Programm B hat die Datei geöffnet.");
-            setStatus("B_OPEN");
             FileWriter writer = new FileWriter(OUTPUT_FILE, true);
             Thread.sleep(SLEEP_MILLIS);
 
             // 3. Schreiben in die Datei
-            writer.write("Programm B schreibt und schließt.\n");
-            System.out.println("Programm B hat geschrieben.");
+            writer.write("B\n");
             writer.close();
             Thread.sleep(SLEEP_MILLIS);
             // 4. Status setzen, damit A schreiben kann
-            setStatus("B_DONE");
+            setStatus('A');
 
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private static String getStatus() throws IOException {
-        return Files.readString(Path.of(STATUS_FILE)).trim();
+    private static char getStatus() throws Exception {
+        return SimpleWrite.read_mem();
     }
 
-    private static void setStatus(String status) throws IOException {
-        Files.writeString(Path.of(STATUS_FILE), status);
+    private static void setStatus(char status) throws Exception {
+        SimpleWrite.write_mem(status);
     }
 }
