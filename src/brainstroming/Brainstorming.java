@@ -5,13 +5,14 @@ import com.googlecode.lanterna.gui2.*;
 import com.googlecode.lanterna.screen.Screen;
 import com.googlecode.lanterna.terminal.DefaultTerminalFactory;
 
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.*;
 import java.util.*;
 
 public class Brainstorming {
     private static String FILE_PATH;
     private static List<String> lines = new ArrayList<>();
+    private static BufferedWriter writer;
 
     public static void main(String[] args) {
         FILE_PATH = args.length == 0 ? "brainstorming.txt" : args[0];
@@ -30,6 +31,9 @@ public class Brainstorming {
         }
         lines = Files.readAllLines(path);
         if (lines.isEmpty()) lines.add("");
+
+        // Open the file once for writing
+        writer = new BufferedWriter(new FileWriter(FILE_PATH, false)); // false: overwrite file
     }
 
     private static void startEditor() throws IOException {
@@ -46,7 +50,9 @@ public class Brainstorming {
 
         Button saveButton = new Button("Speichern & Beenden", () -> {
             try {
-                Files.write(Paths.get(FILE_PATH), Arrays.asList(textBox.getText().split("\n")));
+                // Write the new content directly to the opened file
+                writer.write(textBox.getText());
+                writer.flush(); // Ensure everything is written to the file
                 screen.stopScreen();
                 System.out.println("Datei gespeichert!");
                 System.exit(0);

@@ -19,3 +19,6 @@ sudo zfs list -H -o name -t snapshot | xargs -n 1 sudo zfs destroy
 # compile and run fanotify
 gcc -o fanotify fanotify.c
 sudo ./fanotify
+
+# start brainstorming programm
+sudo java -cp .:brainstorming/laterna-3.1.3.jar brainstorming.Brainstorming /zfs/brainstorming.txt

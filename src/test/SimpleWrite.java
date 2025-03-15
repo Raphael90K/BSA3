@@ -10,10 +10,10 @@ import java.nio.file.StandardOpenOption;
 
 public class SimpleWrite {
     public static void main(String[] args) {
-        String path = "/zfs/1.txt";
+        String path = "/zfs/brainstorming.txt";
         String text = "Hallo Welt";
 
-        SimpleWrite.write(path, text, 1_000);
+        SimpleWrite.write(path, text, 5_000);
 
     }
 
