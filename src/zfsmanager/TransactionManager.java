@@ -60,7 +60,7 @@ public class TransactionManager {
     }
 
     private boolean commitIsSuccess(String content, boolean append, boolean success) {
-        String latestFileHash;
+        String latestSnapFileHash;
         String currentFileHash;
         // Sperre Datei, schreibe und prüfe, ob Rollback notwendig ist.
         try (FileOutputStream fos = new FileOutputStream(filePath.toFile(), append)) {
@@ -81,9 +81,9 @@ public class TransactionManager {
             write(content, fos);
 
             // Neuen Datei-Hash berechnen
-            latestFileHash = getLatestSnapshotHash(this.filePath);
+            latestSnapFileHash = getLatestSnapshotHash(this.filePath);
             // Prüfe, ob Datei unverändert ist
-            if (latestFileHash.equals(this.fileHash) && currentFileHash.equals(this.fileHash)) {
+            if (latestSnapFileHash.equals(this.fileHash) && currentFileHash.equals(this.fileHash)) {
                 this.commits++;
                 lock.release();
                 System.out.println("Datei freigegeben.");
@@ -157,6 +157,7 @@ public class TransactionManager {
     }
 
     private Path getLatestSnapshotPath(Path filePath) throws IOException, NoSuchAlgorithmException {
+        latestSnapshot = getLatestSnapshot();
         return Paths.get(filePath.getParent() + "/.zfs/snapshot/" + latestSnapshot.split("@")[1] + "/" + filePath.getFileName());
     }
 

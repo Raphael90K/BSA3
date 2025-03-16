@@ -29,7 +29,7 @@ public class ZFSFileManager {
 
     public void rollbackSnapshot(String currentSnapshot) {
         try {
-            Process process = new ProcessBuilder("zfs", "rollback", currentSnapshot).start();
+            Process process = new ProcessBuilder("zfs", "rollback", "-r", currentSnapshot).start();
             process.waitFor();
             System.out.println("🔄 Rollback durchgeführt: " + currentSnapshot);
         } catch (IOException | InterruptedException e) {
