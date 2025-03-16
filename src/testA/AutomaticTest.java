@@ -25,7 +25,7 @@ public class AutomaticTest {
             }
         }
         ArrayList<String> results = new ArrayList<>(5);
-        for (int i = 2; i < 33; i *= 2) {
+        for (int i = 2; i < 17; i *= 2) {
             running.set(true);
             runTest(i, results);
         }

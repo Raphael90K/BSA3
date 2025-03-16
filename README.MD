@@ -5,13 +5,13 @@
 Datei erstellen und als Loopback-Gerät initialisieren
 ```sh 
 dd if=/dev/zero of=zfs_disk.img bs=256K count=4096
-losetup /dev/zfs_disk zfs_disk.img
+losetup /dev/loop9 zfs_disk.img
 lsblk
 ```
 
 Zpool erstellen und prüfen
 ```sh
-zpool create mein_zfs_pool /dev/zfs_disk
+sudo zpool create zfs /dev/loop9
 zpool status
 zfs list
 ```
@@ -24,7 +24,11 @@ sudo zfs list -H -o name -t snapshot | xargs -n 1 sudo zfs destroy
 ## Brainstorming Programme verwenden
 
 ### Konsistenzüberwachung innerhalb des Programms
-
+Erforderliche Programme kompilieren und ausführen
+```sh
+javac zfsmanager/*.java
+sudo java zfsmanager.Brainstorming
+```
 
 ### Konsistenzüberwachung auf Ebene des Ordners
 Erforderliche c Programme zur Überwachung des Dateisystems kompilieren und ausführen

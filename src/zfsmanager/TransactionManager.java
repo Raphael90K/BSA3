@@ -64,7 +64,7 @@ public class TransactionManager {
         try (FileOutputStream fos = new FileOutputStream(filePath.toFile(), append)) {
             FileChannel fileChannel = fos.getChannel();
             FileLock lock;
-            while ((lock = fileChannel.tryLock()) == null){
+            while ((lock = fileChannel.tryLock()) == null) {
                 try {
                     Thread.sleep(500);
                 } catch (InterruptedException e) {
@@ -80,8 +80,10 @@ public class TransactionManager {
 
             // Neuen Datei-Hash berechnen
             latestSnapFileHash = getLatestSnapshotHash(this.filePath);
+
+            boolean newFile = this.fileHash.isEmpty() && this.fileHash.equals(latestSnapFileHash);
             // Prüfe, ob Datei unverändert ist
-            if (latestSnapFileHash.equals(this.fileHash) && currentFileHash.equals(this.fileHash)) {
+            if (newFile || (latestSnapFileHash.equals(this.fileHash) && currentFileHash.equals(this.fileHash))) {
                 latestSnapshot = zfsManager.createSnapshot();
                 this.commits++;
                 lock.release();
