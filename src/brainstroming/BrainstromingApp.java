@@ -123,6 +123,7 @@ public class BrainstromingApp {
 
     private static void startEditor() throws IOException {
         lines = Files.readAllLines(Paths.get(filePath));
+        System.out.println(Paths.get(filePath).toFile().getAbsolutePath());
         writer = new BufferedWriter(new FileWriter(filePath, false)); // false: overwrite file
         if (lines.isEmpty()) lines.add("");
 
