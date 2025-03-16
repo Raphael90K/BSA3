@@ -3,6 +3,7 @@ package zfsmanager;
 import java.io.*;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+import java.nio.channels.OverlappingFileLockException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.Files;
@@ -20,6 +21,7 @@ public class TransactionManager {
     private String fileHash;
     private BufferedWriter writer;
     private int commitFails;
+    private boolean txStarted;
 
     public TransactionManager(String pathToDir) {
         this.rollbacks = 0;
@@ -27,6 +29,7 @@ public class TransactionManager {
         this.commitFails = 0;
         this.zfsManager = new ZFSFileManager();
         this.directory = pathToDir;
+        this.txStarted = false;
     }
 
     public void start(Path filePath) {
@@ -34,20 +37,42 @@ public class TransactionManager {
         this.filePath = filePath;
         try {
             this.fileHash = getFileHash(this.filePath);
+            this.txStarted = true;
         } catch (IOException | NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
-        System.out.println(fileHash);
+        System.out.printf("File %s: %s\n", filePath.getFileName(), fileHash);
     }
 
-    public boolean commit(String content, boolean append) {
+    public boolean commit(String content, boolean append, boolean deleteFile) {
         String latestFileHash = "";
         String currentFileHash = "";
+        boolean success = false;
+        if (!this.txStarted) {
+            throw new RuntimeException("Transaction not started yet with start(filePath).");
+        }
+        if (deleteFile) {
+            return true;
+        }
+        success = commitIsSuccess(content, append, success);
+        this.txStarted = false;
+        return success;
+    }
 
-        // Versuche, die Datei systemweit zu sperren
+    private boolean commitIsSuccess(String content, boolean append, boolean success) {
+        String latestFileHash;
+        String currentFileHash;
+        // Sperre Datei, schreibe und prüfe, ob Rollback notwendig ist.
         try (FileOutputStream fos = new FileOutputStream(filePath.toFile(), append)) {
             FileChannel fileChannel = fos.getChannel();
-            FileLock lock = fileChannel.lock();
+            FileLock lock;
+            while ((lock = fileChannel.tryLock()) == null){
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
 
             // Exklusive Sperre für den ganzen Prozess
             System.out.println("Datei gesperrt!");
@@ -63,18 +88,17 @@ public class TransactionManager {
                 lock.release();
                 System.out.println("Datei freigegeben.");
                 System.out.println("Commit erfolgreich");
-                return true;
+                success = true;
             } else {
                 zfsManager.rollbackSnapshot(latestSnapshot);
                 this.rollbacks++;
-                return false;
             }
 
-        } catch (IOException | NoSuchAlgorithmException e) {
-            e.printStackTrace();
+        } catch (IOException | NoSuchAlgorithmException | OverlappingFileLockException e) {
+            System.out.println("Commit Error: " + e.getMessage());
             this.commitFails++;
         }
-        return false;
+        return success;
     }
 
     private void write(String content, FileOutputStream fos) throws IOException {
@@ -104,6 +128,7 @@ public class TransactionManager {
             return "";
         }
     }
+
     private String calculateHash(Path filePath) throws IOException, NoSuchAlgorithmException {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         try (InputStream fis = Files.newInputStream(filePath)) {
@@ -132,7 +157,19 @@ public class TransactionManager {
     }
 
     private Path getLatestSnapshotPath(Path filePath) throws IOException, NoSuchAlgorithmException {
-        return Paths.get(filePath.getParent() + "/.zfs/snapshot/" + this.latestSnapshot.split("@")[1] + "/" + filePath.getFileName());
+        return Paths.get(filePath.getParent() + "/.zfs/snapshot/" + latestSnapshot.split("@")[1] + "/" + filePath.getFileName());
+    }
+
+    public static String getLatestSnapshot() throws IOException {
+        ProcessBuilder processBuilder = new ProcessBuilder(
+                "sh", "-c", "zfs list -t snapshot -o name -s creation | grep '^" + "zfs" + "@' | tail -n 1"
+        );
+        processBuilder.redirectErrorStream(true);
+        Process process = processBuilder.start();
+        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        String lastSnapshot = reader.readLine();
+        process.destroy();
+        return (!lastSnapshot.equals("no datasets available")) ? lastSnapshot.trim() : "";
     }
 
 }

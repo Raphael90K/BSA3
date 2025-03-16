@@ -30,7 +30,7 @@ public class Brainstorming {
 
         switch (choice) {
             case 1:
-                displayIdeas(scanner);
+                displayIdeas();
                 break;
             case 2:
                 addIdea(scanner);
@@ -42,6 +42,9 @@ public class Brainstorming {
                 deleteIdea(scanner);
                 break;
             case 5:
+                System.out.printf("Commits sucess: %d\n", TM.getCommits());
+                System.out.printf("Rollbacks: %d\n", TM.getRollbacks());
+                System.out.printf("Fails: %d\n", TM.getCommitFails());
                 System.out.println("Programm wird beendet.");
                 scanner.close();
                 return false;
@@ -52,7 +55,7 @@ public class Brainstorming {
     }
 
     // 1. Alle Ideen anzeigen
-    public static void displayIdeas(Scanner scanner) {
+    public static void displayIdeas() {
         File folder = new File(IDEAS_DIRECTORY);
         File[] listOfFiles = folder.listFiles((dir, name) -> name.endsWith(".txt"));
 
@@ -83,7 +86,7 @@ public class Brainstorming {
 
         TM.start(filePath);
         String text = handleAdd(scanner, filePath, title);
-        TM.commit(text, false);
+        TM.commit(text, false, false);
     }
 
     private static String handleAdd(Scanner scanner, Path filePath, String title) {
@@ -116,7 +119,7 @@ public class Brainstorming {
         Path filePath = Path.of(IDEAS_DIRECTORY, title + ".txt");
         TM.start(filePath);
         String text = handleComment(scanner, filePath, title);
-        TM.commit(text, true);
+        TM.commit(text, true, false);
     }
 
     private static String handleComment(Scanner scanner, Path filePath, String title) {
@@ -160,7 +163,7 @@ public class Brainstorming {
 
         TM.start(filePath);
         handleDelete(filePath, title);
-        TM.commit("delete file", true);
+        TM.commit("", false, true);
     }
 
     private static void handleDelete(Path filePath, String title) {
