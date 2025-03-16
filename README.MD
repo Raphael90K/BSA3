@@ -61,3 +61,10 @@ Um Test B auszuführen zu können ist eine Datei in /dev/shm/ notwendig
 ```sh 
 sudo touch /dev/shm/status
 ```
+
+Anschließend Test B kompilieren und beide Programme ausführen
+```sh
+javac testB/*.java
+sudo java testB.ProcessA
+sudo java testB.ProcessB
+```
