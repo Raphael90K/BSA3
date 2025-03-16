@@ -16,6 +16,14 @@ public class AutomaticTest {
     private static final AtomicBoolean running = new AtomicBoolean(true);
 
     public static void main(String[] args) {
+        // 10 Dateien erstellen (0.txt - 9.txt)
+        for (int i = 0; i < 10; i++) {
+            try {
+                Files.createFile(Paths.get(DIRECTORY, i + ".txt"));
+            } catch (IOException e) {
+                // Falls Datei schon existiert, ignorieren
+            }
+        }
         ArrayList<String> results = new ArrayList<>(5);
         for (int i = 2; i < 33; i *= 2) {
             running.set(true);
@@ -28,17 +36,8 @@ public class AutomaticTest {
     }
 
     public static void runTest(int nThreads, ArrayList<String> results) {
-        // Sicherstellen, dass das Verzeichnis existiert
-        new File(DIRECTORY).mkdirs();
 
-        // 10 Dateien erstellen (0.txt - 9.txt)
-        for (int i = 0; i < 10; i++) {
-            try {
-                Files.createFile(Paths.get(DIRECTORY, i + ".txt"));
-            } catch (IOException e) {
-                // Falls Datei schon existiert, ignorieren
-            }
-        }
+
 
         int[] commits = new int[nThreads];
         int[] rollbacks = new int[nThreads];

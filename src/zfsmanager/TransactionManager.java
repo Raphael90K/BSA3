@@ -45,8 +45,6 @@ public class TransactionManager {
     }
 
     public boolean commit(String content, boolean append, boolean deleteFile) {
-        String latestFileHash = "";
-        String currentFileHash = "";
         boolean success = false;
         if (!this.txStarted) {
             throw new RuntimeException("Transaction not started yet with start(filePath).");
