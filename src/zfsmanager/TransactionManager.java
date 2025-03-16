@@ -33,34 +33,36 @@ public class TransactionManager {
         latestSnapshot = this.zfsManager.createSnapshot();
         this.filePath = filePath;
         try {
-            this.fileHash = calculateHash(this.filePath);
+            this.fileHash = getFileHash(this.filePath);
         } catch (IOException | NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
+        System.out.println(fileHash);
     }
 
     public boolean commit(String content, boolean append) {
         String latestFileHash = "";
+        String currentFileHash = "";
 
         // Versuche, die Datei systemweit zu sperren
-        try (RandomAccessFile raf = new RandomAccessFile(filePath.toFile(), "rw");
-             FileChannel fileChannel = raf.getChannel();
-             FileLock lock = fileChannel.lock()) {
+        try (FileOutputStream fos = new FileOutputStream(filePath.toFile(), append)) {
+            FileChannel fileChannel = fos.getChannel();
+            FileLock lock = fileChannel.lock();
 
             // Exklusive Sperre für den ganzen Prozess
             System.out.println("Datei gesperrt!");
+            currentFileHash = getFileHash(filePath);
 
-            // Datei schreiben
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter(this.filePath.toFile(), append))) {
-                writer.write(content);
-            }
+            write(content, fos);
 
             // Neuen Datei-Hash berechnen
             latestFileHash = getLatestSnapshotHash(this.filePath);
             // Prüfe, ob Datei unverändert ist
-            if (latestFileHash.equals(this.fileHash)) {
-                zfsManager.createSnapshot();
+            if (latestFileHash.equals(this.fileHash) && currentFileHash.equals(this.fileHash)) {
                 this.commits++;
+                lock.release();
+                System.out.println("Datei freigegeben.");
+                System.out.println("Commit erfolgreich");
                 return true;
             } else {
                 zfsManager.rollbackSnapshot(latestSnapshot);
@@ -75,6 +77,13 @@ public class TransactionManager {
         return false;
     }
 
+    private void write(String content, FileOutputStream fos) throws IOException {
+        // Datei schreiben
+        this.writer = new BufferedWriter(new OutputStreamWriter(fos));
+        this.writer.write(content);
+        this.writer.flush();
+    }
+
     public int getRollbacks() {
         return rollbacks;
     }
@@ -87,6 +96,14 @@ public class TransactionManager {
         return commitFails;
     }
 
+    private String getFileHash(Path filePath) throws IOException, NoSuchAlgorithmException {
+        if (Files.exists(filePath)) {
+            return calculateHash(filePath);
+        } else {
+            System.err.println("⚠ Datei nicht gefunden: " + filePath);
+            return "";
+        }
+    }
     private String calculateHash(Path filePath) throws IOException, NoSuchAlgorithmException {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         try (InputStream fis = Files.newInputStream(filePath)) {
@@ -118,12 +135,4 @@ public class TransactionManager {
         return Paths.get(filePath.getParent() + "/.zfs/snapshot/" + this.latestSnapshot.split("@")[1] + "/" + filePath.getFileName());
     }
 
-    private void write(Path filePath, String content) {
-        try {
-            this.writer.write(content);
-            System.out.println("Datei " + filePath + " geschrieben.");
-        } catch (IOException e) {
-            System.err.println("Fehler beim Schreiben der Datei: " + e.getMessage());
-        }
-    }
 }

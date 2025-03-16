@@ -6,7 +6,7 @@ import java.util.*;
 
 public class Brainstorming {
 
-    private static final String IDEAS_DIRECTORY = "ideas"; // Ordner, in dem die Ideen gespeichert werden
+    private static final String IDEAS_DIRECTORY = "/zfs"; // Ordner, in dem die Ideen gespeichert werden
     private static final TransactionManager TM = new TransactionManager(IDEAS_DIRECTORY);
 
     public static void main(String[] args) {
@@ -148,7 +148,7 @@ public class Brainstorming {
         System.out.print("Geben Sie den Kommentar ein, der hinzugefügt werden soll: ");
         String comment = scanner.nextLine().trim();
 
-        return comment;
+        return comment + "\n";
     }
 
     // 4. Eine Idee löschen

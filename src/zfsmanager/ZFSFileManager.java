@@ -39,19 +39,4 @@ public class ZFSFileManager {
         }
     }
 
-    public String getLatestSnapshot() throws IOException {
-        ProcessBuilder processBuilder = new ProcessBuilder(
-                "sh", "-c", "zfs list -t snapshot -o name -s creation | grep '^" + ZFS_POOL + "@' | tail -n 1"
-        );
-        processBuilder.redirectErrorStream(true);
-
-        Process process = processBuilder.start();
-        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-
-        String lastSnapshot = reader.readLine();
-        process.destroy();
-
-        return (lastSnapshot != null) ? lastSnapshot.trim() : null;
-    }
-
 }
