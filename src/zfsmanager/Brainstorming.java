@@ -7,6 +7,7 @@ import java.util.*;
 public class Brainstorming {
 
     private static final String IDEAS_DIRECTORY = "ideas"; // Ordner, in dem die Ideen gespeichert werden
+    private static final TransactionManager TM = new TransactionManager(IDEAS_DIRECTORY);
 
     public static void main(String[] args) {
 
@@ -80,24 +81,23 @@ public class Brainstorming {
 
         Path filePath = Path.of(IDEAS_DIRECTORY, title + ".txt");
 
-
-        handleAdd(scanner, filePath, title);
+        TM.start(filePath);
+        String text = handleAdd(scanner, filePath, title);
+        TM.commit(text, false);
     }
 
-    private static void handleAdd(Scanner scanner, Path filePath, String title) {
+    private static String handleAdd(Scanner scanner, Path filePath, String title) {
         File newIdeaFile = filePath.toFile().getAbsoluteFile();
-
+        StringBuilder comment = new StringBuilder();
         try {
             if (newIdeaFile.createNewFile()) {
                 System.out.println("Neue Idee '" + title + "' wurde hinzugefügt.");
                 System.out.print("Geben Sie Kommentare zur Idee ein (gib 'exit' ein, um zu beenden): ");
 
-                BufferedWriter writer = new BufferedWriter(new FileWriter(newIdeaFile));
-                String comment;
-                while (!(comment = scanner.nextLine()).equals("exit")) {
-                    writer.write(comment + "\n");
+                String line;
+                while (!(line = scanner.nextLine()).equals("exit")) {
+                    comment.append(line).append("\n");
                 }
-                writer.close();
             } else {
                 System.out.println("Die Datei für diese Idee existiert bereits.");
             }
@@ -105,6 +105,7 @@ public class Brainstorming {
             System.err.println("Fehler beim Erstellen der Datei: " + e.getMessage());
             e.printStackTrace();
         }
+        return comment.toString();
     }
 
     // 3. Eine Idee kommentieren (Kommentar anhängen)
@@ -113,15 +114,17 @@ public class Brainstorming {
         String title = scanner.nextLine().trim();
 
         Path filePath = Path.of(IDEAS_DIRECTORY, title + ".txt");
-        handleComment(scanner, filePath, title);
+        TM.start(filePath);
+        String text = handleComment(scanner, filePath, title);
+        TM.commit(text, true);
     }
 
-    private static void handleComment(Scanner scanner, Path filePath, String title) {
+    private static String handleComment(Scanner scanner, Path filePath, String title) {
         File ideaFile = filePath.toFile().getAbsoluteFile();
 
         if (!ideaFile.exists()) {
             System.out.println("Diese Idee existiert nicht.");
-            return;
+            return "";
         }
 
         // Zeige den aktuellen Inhalt der Idee an
@@ -138,19 +141,14 @@ public class Brainstorming {
             }
         } catch (IOException e) {
             System.err.println("Fehler beim Lesen der Datei: " + e.getMessage());
-            return;
+            return "";
         }
 
         // Füge Kommentar hinzu
         System.out.print("Geben Sie den Kommentar ein, der hinzugefügt werden soll: ");
         String comment = scanner.nextLine().trim();
 
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(ideaFile, true))) {
-            writer.write(comment + "\n");
-            System.out.println("Kommentar wurde hinzugefügt.");
-        } catch (IOException e) {
-            System.err.println("Fehler beim Hinzufügen des Kommentars: " + e.getMessage());
-        }
+        return comment;
     }
 
     // 4. Eine Idee löschen
@@ -159,7 +157,10 @@ public class Brainstorming {
         String title = scanner.nextLine().trim();
 
         Path filePath = Path.of(IDEAS_DIRECTORY, title + ".txt");
+
+        TM.start(filePath);
         handleDelete(filePath, title);
+        TM.commit("delete file", true);
     }
 
     private static void handleDelete(Path filePath, String title) {
