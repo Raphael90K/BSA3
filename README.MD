@@ -23,14 +23,14 @@ sudo zfs list -H -o name -t snapshot | xargs -n 1 sudo zfs destroy
 
 ## Brainstorming Programme verwenden
 
-### Konsistenzüberwachung innerhalb des Programms
+### Brainstorming mit Konsistenzüberwachung innerhalb des Programms
 Erforderliche Programme kompilieren und ausführen
 ```sh
 javac zfsmanager/*.java
 sudo java zfsmanager.Brainstorming
 ```
 
-### Konsistenzüberwachung auf Ebene des Ordners
+### Brainstorming mit Konsistenzüberwachung auf Ebene des Ordners
 Erforderliche c Programme zur Überwachung des Dateisystems kompilieren und ausführen
 ```sh
 gcc -o fanotify fanotify.c
@@ -49,3 +49,15 @@ BrainstormingApp mit Lantera kompilieren und ausführen
 javac -cp :laterna-3.1.3.jar brainstorming/*.java
 sudo java -cp .:laterna-3.1.3.jar brainstorming.BrainstormingApp
 ````
+
+### Validierung testen
+Test A kompilieren und starten
+```sh 
+javac testA/*.java
+sudo java testA.AutomaticTest
+```
+
+Um Test B auszuführen zu können ist eine Datei in /dev/shm/ notwendig
+```sh 
+sudo touch /dev/shm/status
+```

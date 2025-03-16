@@ -17,7 +17,7 @@ public class ProcessB {
         try {
             // 1. Warten, bis A geöffnet hat
             while (!('B' == getStatus())) {
-                Thread.sleep(SLEEP_MILLIS);
+                Thread.sleep(500);
             }
             // 2. Datei öffnen
             FileWriter writer = new FileWriter(OUTPUT_FILE, true);

@@ -26,7 +26,7 @@ public class ProcessA {
 
             // 2. Warten, bis B fertig geschrieben hat
             while (!(getStatus() == 'A')) {
-                Thread.sleep(SLEEP_MILLIS);
+                Thread.sleep(500);
             }
             // 3. Schreiben in die Datei
             writer.write("A\n");
