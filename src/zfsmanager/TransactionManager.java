@@ -82,6 +82,7 @@ public class TransactionManager {
             latestSnapFileHash = getLatestSnapshotHash(this.filePath);
             // Prüfe, ob Datei unverändert ist
             if (latestSnapFileHash.equals(this.fileHash) && currentFileHash.equals(this.fileHash)) {
+                latestSnapshot = zfsManager.createSnapshot();
                 this.commits++;
                 lock.release();
                 System.out.println("Datei freigegeben.");
@@ -89,11 +90,12 @@ public class TransactionManager {
                 success = true;
             } else {
                 zfsManager.rollbackSnapshot(latestSnapshot);
+                lock.release();
                 this.rollbacks++;
             }
 
         } catch (IOException | NoSuchAlgorithmException | OverlappingFileLockException e) {
-            System.out.println("Commit Error: " + e.getMessage());
+            System.out.println("Commit Error: " + e.getLocalizedMessage());
             this.commitFails++;
         }
         return success;

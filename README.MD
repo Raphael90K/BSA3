@@ -4,13 +4,14 @@
 
 Datei erstellen und als Loopback-Gerät initialisieren
 ```sh 
-dd if=/dev/zero of=deine_datei.img bs=256K count=4096
-losetup /dev/loop0 deine_datei.img
+dd if=/dev/zero of=zfs_disk.img bs=256K count=4096
+losetup /dev/zfs_disk zfs_disk.img
+lsblk
 ```
 
 Zpool erstellen und prüfen
 ```sh
-zpool create mein_zfs_pool /dev/loop0
+zpool create mein_zfs_pool /dev/zfs_disk
 zpool status
 zfs list
 ```
