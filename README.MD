@@ -44,10 +44,11 @@ javac zfsFileMonitor/*.java
 sudo java zfsFileMonitor.ZFSFileMonitorPID
 ```
 
-BrainstormingApp mit Lantera kompilieren und ausführen
+BrainstormingApp mit Lantera kompilieren und ausführen.
+Achtung: Hierzu wird die lanterna-3.1.3.jar benötigt.
 ````sh
-javac -cp :laterna-3.1.3.jar brainstorming/*.java
-sudo java -cp .:laterna-3.1.3.jar brainstorming.BrainstormingApp
+javac -cp :lanterna-3.1.3.jar brainstorming/*.java
+sudo java -cp .:lanterna-3.1.3.jar brainstorming.BrainstormingApp
 ````
 
 ### Validierung testen
