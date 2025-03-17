@@ -62,9 +62,12 @@ Um Test B auszuführen zu können ist eine Datei in /dev/shm/ notwendig
 sudo touch /dev/shm/status
 ```
 
-Anschließend Test B kompilieren und beide Programme ausführen
+Anschließend Test B kompilieren und beide Programme zusammen mit der Systemüberwachung ausführen
 ```sh
 javac testB/*.java
+
+sudo ./fanotify
+sudo java zfsFileMonitor.ZFSFileMonitorPID
 sudo java testB.ProcessA
 sudo java testB.ProcessB
 ```
