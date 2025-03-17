@@ -9,8 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class AutomaticTest {
 
-    private static final String DIRECTORY = "transactions";
-    private static final int THREAD_COUNT = 10;
+    private static final String DIRECTORY = "/zfs";
     private static final int RUN_DURATION = 10; // in Sekunden
     private static final Random RANDOM = new Random();
     private static final AtomicBoolean running = new AtomicBoolean(true);
